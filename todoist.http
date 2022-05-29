@@ -1,0 +1,3 @@
+# Delete project
+GET https://api.todoist.com/sync/v8/sync
+Authorization: 

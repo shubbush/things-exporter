@@ -1,4 +1,4 @@
-module shubbush/things2todoist
+module shubbush/things-exporter
 
 go 1.18
 
