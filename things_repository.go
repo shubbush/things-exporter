@@ -1,6 +1,8 @@
 package main
 
 import (
+	"database/sql"
+
 	"github.com/jmoiron/sqlx"
 )
 
@@ -24,12 +26,14 @@ type Area struct {
 // todayIndex  int
 // uuid    string
 type Task struct {
+	Uuid    string
 	Title   string
-	Notes   *string
+	Notes   sql.NullString
+	DueDate sql.NullString `db:"due_date"`
 	Index   int
 	Status  int // 0 - todo, 2 - canceled, 3 - completed
-	Area    *string
-	Project *string
+	Area    sql.NullString
+	Project sql.NullString
 }
 
 type CheckListItem struct {
@@ -54,6 +58,12 @@ func (t ThingsDB) getAreas() []Area {
 
 func (t ThingsDB) getProjectsWithoutArea() ([]Task, error) {
 	projects := []Task{}
-	err := t.db.Select(&projects, "SELECT t.title, t.notes, t.\"index\", t.status, t.area, t.project from TMTask t where t.\"type\" == 1 and t.trashed != 1 and t.area is null order by t.\"index\"")
+	err := t.db.Select(&projects, "SELECT t.uuid, t.title, t.notes, t.\"index\", t.status, t.area, t.project from TMTask t where t.\"type\" == 1 and t.trashed != 1 and t.area is null order by t.\"index\"")
 	return projects, err
+}
+
+func (t ThingsDB) getTasksByProject(projectId string) ([]Task, error) {
+	tasks := []Task{}
+	err := t.db.Select(&tasks, "SELECT t.title, t.notes, date(t.dueDate, 'unixepoch') AS due_date, t.\"index\", t.status, t.area, t.project from TMTask t where t.\"type\" == 0 and t.trashed != 1 and t.project == ? order by t.\"index\"", projectId)
+	return tasks, err
 }
