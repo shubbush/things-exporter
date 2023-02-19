@@ -18,12 +18,13 @@ func mkHeadline(lvl int, title string) org.Headline {
 	return org.Headline{Lvl: lvl, Title: []org.Node{org.Text{Content: title, IsRaw: true}}, Children: []org.Node{}}
 }
 
-func mkTodo(lvl int, title string, status string, index int, dueDate sql.NullString) org.Headline {
+func mkTodo(lvl int, title string, status string, index int, dueDate sql.NullString, tags []string) org.Headline {
 	return org.Headline{
 		Index:  index,
 		Lvl:    lvl,
 		Title:  []org.Node{mkText(title)},
 		Status: status,
+		Tags:   tags,
 	}
 }
 
