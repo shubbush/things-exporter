@@ -3,7 +3,9 @@ package main
 import (
 	"fmt"
 	"log"
+	"math"
 	"strings"
+	"time"
 
 	"github.com/jmoiron/sqlx"
 	_ "github.com/mattn/go-sqlite3"
@@ -62,14 +64,14 @@ func getTagsByTask(db *ThingsDB) map[string][]string {
 }
 
 func convertProject(db *ThingsDB, thingsProject Task, tagsByTaskUuid map[string][]string) org.Headline {
-	headline := taskToTodo(0, thingsProject, emptyTags)
+	headline := taskToTodo(1, thingsProject, emptyTags)
 	tasks, err := db.getTasksByProject(thingsProject.Uuid)
 	if err != nil {
 		fmt.Println(err)
 	}
 	for _, task := range tasks {
 		tags := tagsByTaskUuid[task.Uuid]
-		todo := taskToTodo(1, task, tags)
+		todo := taskToTodo(2, task, tags)
 		addChild(&headline, todo)
 	}
 	return headline
@@ -77,6 +79,12 @@ func convertProject(db *ThingsDB, thingsProject Task, tagsByTaskUuid map[string]
 
 func taskToTodo(lvl int, task Task, tags []string) org.Headline {
 	todo := mkTodo(lvl, task.Title, taskStatusToOrgStatus(task.Status), task.Index, task.DueDate, tags)
+	if task.StopDate.Valid {
+		sec, dec := math.Modf(task.StopDate.Float64)
+		closed := time.Unix(int64(sec), int64(dec*(1e9)))
+		formatedClosed := fmt.Sprintf("CLOSED: [%s]", closed.Format("2006-01-02 Mon 15:04"))
+		addChild(&todo, mkText(formatedClosed+"\n"))
+	}
 	if task.Notes.Valid && len(task.Notes.String) > 0 {
 		addChild(&todo, mkText(task.Notes.String+"\n"))
 	}
