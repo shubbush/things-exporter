@@ -2,8 +2,9 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"math"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -14,51 +15,88 @@ import (
 
 const dbFile string = "db/main.sqlite"
 
+const outDir = "out"
+
 var emptyTags = make([]string, 0)
 
 func main() {
 
-	nodes := []org.Node{}
-
 	db, err := sqlx.Connect("sqlite3", dbFile)
 	if err != nil {
-		log.Fatal(err)
+		panic(err)
 	}
 	thingsDb := ThingsDB{db}
 	tagsByTask := getTagsByTask(&thingsDb)
+	areasByUuid := getAreasMap(&thingsDb)
 
 	projects, err := thingsDb.getProjects()
 	if err != nil {
-		fmt.Println(err)
+		panic(err)
 	}
 
 	for _, project := range projects {
+		nodes := []org.Node{}
 		// fmt.Printf("Processing %s\n", project.Title)
 		headline := convertProject(&thingsDb, project, tagsByTask)
 		nodes = append(nodes, headline)
-	}
 
-	doc := org.Document{
-		Nodes: nodes,
+		doc := org.Document{
+			Nodes: nodes,
+		}
+		orgWriter := org.OrgWriter{}
+		docStr, err := doc.Write(&orgWriter)
+		if err != nil {
+			panic(err)
+		}
+		area := ""
+		if project.Area.Valid {
+			area = areasByUuid[project.Area.String]
+		}
+		path := mkDirPath(area)
+		os.MkdirAll(path, os.ModePerm)
+		fileName := mkFileName(project.Title)
+		file, err := os.Create(filepath.Join(path, fileName))
+		file.Write([]byte(docStr))
+		if err != nil {
+			panic(err)
+		}
 	}
-	orgWriter := org.OrgWriter{}
-	docStr, err := doc.Write(&orgWriter)
-	fmt.Println(docStr)
 
 	if err != nil {
-		log.Fatal(err)
+		panic(err)
 	}
 
+}
+
+func mkDirPath(area string) string {
+	path := filepath.Join(".", outDir)
+	if len(area) > 0 {
+		path = filepath.Join(path, area)
+	}
+	return path
+}
+
+func mkFileName(project string) string {
+	return fmt.Sprintf("%s.org", strings.ReplaceAll(strings.ToLower(project), "\\s", "_"))
 }
 
 func getTagsByTask(db *ThingsDB) map[string][]string {
 	tags, err := db.getTagsByTask()
 	if err != nil {
-		log.Fatal(err)
+		panic(err)
 	}
 	res := make(map[string][]string)
 	for _, tag := range tags {
 		res[tag.Uuid] = strings.Split(tag.Tags, ",")
+	}
+	return res
+}
+
+func getAreasMap(db *ThingsDB) map[string]string {
+	areas := db.getAreas()
+	res := make(map[string]string)
+	for _, area := range areas {
+		res[area.Uuid] = area.Title
 	}
 	return res
 }
